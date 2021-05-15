@@ -1,0 +1,9 @@
+[devshell]
+packages = [
+    "terraform-providers.aws"
+]
+
+[[commands]]
+package = "terraform"
+help = "Hashicorp Terraform to manage infrastructure"
+
