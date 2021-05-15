@@ -1,10 +1,5 @@
 imports = ["git/hooks"]
 
-[devshell]
-packages = [
-    "terraform-providers.aws"
-]
-
 [git.hooks]
 enable = true
 
