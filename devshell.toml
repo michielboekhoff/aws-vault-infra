@@ -1,9 +1,22 @@
+imports = ["git/hooks"]
+
 [devshell]
 packages = [
     "terraform-providers.aws"
 ]
 
+[git.hooks]
+enable = true
+
+[git.hooks.pre-commit]
+text = """
+     git secret hide -m
+"""
+
 [[commands]]
-package = "terraform"
+package = "terraform_0_15"
 help = "Hashicorp Terraform to manage infrastructure"
 
+[[commands]]
+package = "git-secret"
+help = "A tool to encrypt / decrypt secrets in Git"
