@@ -15,3 +15,8 @@ help = "Hashicorp Terraform to manage infrastructure"
 [[commands]]
 package = "git-secret"
 help = "A tool to encrypt / decrypt secrets in Git"
+
+[[commands]]
+package = "fluxcd"
+name = "flux"
+help = "A tool to manage FluxCD"
