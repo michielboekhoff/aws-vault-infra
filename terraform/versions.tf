@@ -15,7 +15,6 @@ terraform {
       version = "~> 3.1.0"
     }
 
-    # make this go away TODO
     kubectl = {
       source  = "gavinbunney/kubectl"
       version = "1.10.0"
