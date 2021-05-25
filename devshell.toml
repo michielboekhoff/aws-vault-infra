@@ -20,3 +20,19 @@ help = "A tool to encrypt / decrypt secrets in Git"
 package = "fluxcd"
 name = "flux"
 help = "A tool to manage FluxCD"
+
+[[commands]]
+name = "tfdestroy"
+command = """
+#!/usr/bin/env sh
+
+# This script is to work around https://github.com/fluxcd/terraform-provider-flux/issues/67
+# In short: the Kubernetes namespace gets stuck in 'Terminating' because the
+# controllers are torn down before the finalizers for the resources can be run.
+# Because Terraform doesn't allow you to (explicitly) define an order of deletion (or skip deletion for resources!), this means that we have to remove the
+# Kubernetes resources from the state. This shouldn't matter too much as these would get wiped when the EKS cluster gets torn down.
+
+terraform state rm 'module.flux'
+terraform destroy -auto-approve
+"""
+help = "Destroy all Terraform resources"
