@@ -1,3 +1,4 @@
+# This deploys Vault using the official Hashic
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
 metadata:
@@ -15,5 +16,24 @@ spec:
       interval: 1m
   values:
     server:
-      dev:
+      serviceAccount:
+        create: false
+        name: "vault-sa"
+      standalone:
         enabled: true
+        config: |
+          listener "tcp" {
+            tls_disable = 1
+            address = "[::]:8200"
+            cluster_address = "[::]:8201"
+          }
+        
+          storage "file" {
+            path = "/vault/data"
+          }
+
+          seal "awskms" {
+            region = "eu-west-1"
+            kms_key_id = "alias/vault-unseal"
+          }
+

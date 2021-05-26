@@ -33,6 +33,8 @@ command = """
 # Kubernetes resources from the state. This shouldn't matter too much as these would get wiped when the EKS cluster gets torn down.
 
 terraform state rm 'module.flux'
+terraform state rm 'kubernetes_namespace.vault_ns'
+terraform state rm 'kubernetes_service_account.kms_sa'
 terraform destroy -auto-approve
 """
 help = "Destroy all Terraform resources"

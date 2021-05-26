@@ -1,5 +1,82 @@
+# KMS key to encrypt k8s secrets
 resource "aws_kms_key" "eks" {
   description = "EKS Secret Encryption Key"
+}
+
+# Vault KMS section to follow
+resource "aws_kms_key" "vault_unseal" {
+  description = "Vault auto-unseal key"
+}
+
+resource "aws_kms_alias" "vault_unseal_alias" {
+  name          = "alias/vault-unseal"
+  target_key_id = aws_kms_key.vault_unseal.key_id
+}
+
+# NOTE(mboekhoff): This has to be defined in here because we have to create a
+# service account for Vault. We need the role ARN in the below service account
+# for IRSA to work:
+# https://docs.aws.amazon.com/eks/latest/userguide/specify-service-account-role.html
+# A neat solution to this might be an AWS Kubernetes operator that can create
+# the service account & role but I didn't look into this because of time 
+# constraints & to keep things simple.
+# NOTE(mboekhoff): see the following for the AWS operator:
+# https://aws-controllers-k8s.github.io/community/services/#aws-kms
+resource "kubernetes_namespace" "vault_ns" {
+  metadata {
+    name = "vault"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      metadata[0].labels,
+    ]
+  }
+}
+
+resource "aws_iam_policy" "kms_policy" {
+  name = "kms_policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action   = ["kms:Encrypt", "kms:Decrypt", "kms:DescribeKey"],
+        Effect   = "Allow",
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [module.eks.oidc_provider_arn]
+    }
+  }
+}
+
+resource "aws_iam_role" "vault_role" {
+  name                = "vault_role"
+  managed_policy_arns = [aws_iam_policy.kms_policy.arn]
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+resource "kubernetes_service_account" "kms_sa" {
+  depends_on = [kubernetes_namespace.vault_ns]
+
+  metadata {
+    name      = "vault-sa"
+    namespace = "vault"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.vault_role.arn
+    }
+  }
 }
 
 # Usage of this is not strictly encouraged for production,
@@ -39,6 +116,9 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
 
   cluster_endpoint_private_access = true
+
+  # To enable fine-grained IAM policies to Kubernetes service accounts
+  enable_irsa = true
 
   # Encrypt k8s secrets
   cluster_encryption_config = [
