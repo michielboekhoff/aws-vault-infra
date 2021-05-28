@@ -1,0 +1,29 @@
+# This deploys Vault using the official Hashic
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: postgres
+  namespace: books
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: postgresql
+      version: 10.4.8
+      sourceRef:
+        name: bitnami-helm
+        kind: HelmRepository
+      interval: 1m
+  values:
+    postgresqlPassword: myawesomepassword
+    initdbScripts:
+      "init.sql": |
+        CREATE DATABASE books;
+        \c books;
+
+        CREATE TABLE books(
+          name TEXT NOT NULL,
+          author TEXT NOT NULL
+        );
+
+        INSERT INTO books(name, author) VALUES ('Hamlet', 'William Shakespeare'), ('Don Quixote', 'Miguel Cervantes');
