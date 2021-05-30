@@ -21,7 +21,8 @@ resource "aws_kms_alias" "vault_unseal_alias" {
 # the service account & role but I didn't look into this because of time 
 # constraints & to keep things simple.
 # NOTE(mboekhoff): see the following for the AWS operator:
-# https://aws-controllers-k8s.github.io/community/services/#aws-kms
+# https://aws-controllers-k8s.github.io/community/services/#aws-iam
+# https://github.com/aws-controllers-k8s/community/issues/222
 resource "kubernetes_namespace" "vault_ns" {
   metadata {
     name = "vault"
