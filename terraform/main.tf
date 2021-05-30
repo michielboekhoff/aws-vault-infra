@@ -35,6 +35,18 @@ resource "kubernetes_namespace" "vault_ns" {
   }
 }
 
+resource "kubernetes_namespace" "vault_operator_ns" {
+  metadata {
+    name = "vault-operator"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      metadata[0].labels,
+    ]
+  }
+}
+
 resource "aws_iam_policy" "kms_policy" {
   name = "kms_policy"
 
@@ -74,6 +86,18 @@ resource "kubernetes_service_account" "kms_sa" {
   metadata {
     name      = "vault-sa"
     namespace = "vault"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.vault_role.arn
+    }
+  }
+}
+
+resource "kubernetes_service_account" "vault_operator_sa" {
+  depends_on = [kubernetes_namespace.vault_operator_ns]
+
+  metadata {
+    name      = "vault-operator-sa"
+    namespace = "vault-operator"
     annotations = {
       "eks.amazonaws.com/role-arn" = aws_iam_role.vault_role.arn
     }
@@ -133,8 +157,9 @@ module "eks" {
     {
       name                 = "node-group-1"
       instance_type        = "t3.small"
-      asg_desired_capacity = 1
-      asg_max_size         = 3
+      asg_min_size         = 2
+      asg_desired_capacity = 2
+      asg_max_size         = 4
     },
   ]
 }

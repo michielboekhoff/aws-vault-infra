@@ -35,6 +35,8 @@ command = """
 terraform state rm 'module.flux'
 terraform state rm 'kubernetes_namespace.vault_ns'
 terraform state rm 'kubernetes_service_account.kms_sa'
+terraform state rm 'kubernetes_namespace.vault_operator_ns'
+terraform state rm 'kubernetes_service_account.vault_operator_sa'
 terraform destroy -auto-approve
 """
 help = "Destroy all Terraform resources"

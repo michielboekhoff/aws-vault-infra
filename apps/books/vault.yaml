@@ -1,0 +1,136 @@
+apiVersion: vault.banzaicloud.com/v1alpha1
+kind: Vault
+metadata:
+  name: vault
+  namespace: vault-operator
+spec:
+  size: 1
+  image: vault:1.7.2
+  bankVaultsImage: banzaicloud/bank-vaults:1.13.0
+
+  serviceAccount: vault-operator-sa
+
+  # Vault Configurer Pods and Services annotations
+  vaultConfigurerAnnotations:
+    type/instance: "vaultconfigurer"
+    # This may be required if you're using kube2iam to enable vault-configurer to decrypt secrets using the awskms template function
+    # iam.amazonaws.com/role: "role-arn..."
+
+  # Use local disk to store Vault file data, see config section.
+  volumes:
+    - name: vault-file
+      persistentVolumeClaim:
+        claimName: vault-file
+
+  volumeMounts:
+    - name: vault-file
+      mountPath: /vault/file
+
+  # Support for distributing the generated CA certificate Secret to other namespaces.
+  # Define a list of namespaces or use ["*"] for all namespaces.
+  caNamespaces:
+    - "*"
+
+  # Describe where you would like to store the Vault unseal keys and root token.
+  unsealConfig:
+    options:
+      # The preFlightChecks flag enables unseal and root token storage tests
+      # This is true by default
+      preFlightChecks: true
+    kubernetes:
+      secretNamespace: vault-operator
+
+  # A YAML representation of a final vault config file.
+  # See https://www.vaultproject.io/docs/configuration/ for more information.
+  config:
+    storage:
+      file:
+        path: /vault/file
+    seal:
+      awskms:
+        kms_key_id: alias/vault-unseal
+        region: eu-west-1
+    listener:
+      tcp:
+        address: 0.0.0.0:8200
+        tls_cert_file: /vault/tls/server.crt
+        tls_key_file: /vault/tls/server.key
+    ui: false
+
+  # See: https://banzaicloud.com/docs/bank-vaults/cli-tool/#example-external-vault-configuration
+  # The repository also contains a lot examples in the deploy/ and operator/deploy directories.
+  externalConfig:
+    policies:
+      - name: books-svc
+        rules: |
+          path "database/creds/books-role" {
+            capabilities = ["read"]
+          }
+    auth:
+      - type: kubernetes
+        roles:
+          # Allow every pod in the default namespace to use the secret kv store
+          - name: books-role
+            bound_service_account_names: ["books-sa"]
+            bound_service_account_namespaces: ["books"]
+            policies: ["books-svc"]
+            ttl: 1h
+
+    secrets:
+      - type: database
+        description: Books DB
+        configuration:
+          config:
+          - name: books-postgresql
+            plugin_name: postgresql-database-plugin
+            connection_url: "postgresql://{{username}}:{{password}}@postgres-postgresql.books:5432/books?sslmode=disable"
+            allowed_roles: ['books-role']
+            username: postgres
+            password: 'myawesomepassword' # This is only an initial password; Vault will rotate this.
+            rotate: true
+          roles:
+            - name: books-role
+              db_name: books-postgresql
+              creation_statements: "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT SELECT ON books TO \"{{name}}\";"
+              default_ttl: 2m
+              max_ttl: 10m
+
+  # Marks presence of Istio, which influences things like port namings
+  istioEnabled: false
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-file
+  namespace: vault-operator
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# This is necessary as the Vault operator tries to store the root token in a k8s secret
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: vault-operator
+  name: vault-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list", "create", "delete", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-secrets-binding
+  namespace: vault-operator
+subjects:
+- kind: ServiceAccount
+  name: vault-operator-sa
+roleRef:
+  kind: Role
+  name: vault-role
+  apiGroup: rbac.authorization.k8s.io

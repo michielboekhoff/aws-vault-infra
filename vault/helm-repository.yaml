@@ -1,0 +1,17 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: banzaicloud-stable
+  namespace: vault-operator
+spec:
+  url: https://kubernetes-charts.banzaicloud.com
+  interval: 10m
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: hashicorp-helm
+  namespace: vault
+spec:
+  url: https://helm.releases.hashicorp.com
+  interval: 10m
